@@ -216,6 +216,44 @@ def get_current_note(filename):
     return ""
 
 
+def clean_urllink(text: str) -> str:
+    """
+    Cleans urlLink references from blog text for better readability.
+
+    The Blog Authorship Corpus has URLs scrubbed but keeps "urlLink" markers.
+    Analysis shows URLs in the corpus appear as plain text (no brackets/formatting).
+    This function simply removes the "urlLink" marker while preserving all content:
+
+    1. URLs → Keep as plain text
+    2. Anchor text → Keep as-is
+    3. Empty urlLinks → Remove entirely
+
+    Examples:
+        "urlLink www.example.com" → "www.example.com"
+        "Check it out urlLink here." → "Check it out here."
+        "urlLink The Beatles" → "The Beatles"
+        "text urlLink " → "text"
+    """
+    if not text or "urlLink" not in text:
+        return text
+
+    # Remove "urlLink" marker but keep all following text
+    # This handles URLs, descriptive text, and generic anchors uniformly
+    text = re.sub(r"\s*urlLink\s+", " ", text)
+
+    # Remove any remaining standalone "urlLink" (empty ones at end of lines/sentences)
+    text = re.sub(r"\s*urlLink\s*", " ", text)
+
+    # Clean up formatting issues created by removal
+    text = re.sub(
+        r" {2,}", " ", text
+    )  # Multiple SPACES → single space (not all whitespace)
+    text = re.sub(r" +([.!?,;:])", r"\1", text)  # Remove space before punctuation
+    text = re.sub(r"([.!?,;:])\s*,", r"\1,", text)  # Fix ", ," patterns
+
+    return text.strip()
+
+
 def remove_double_spaces(text: str) -> str:
     """Remove multiple consecutive spaces."""
     return re.sub(r" {2,}", " ", text)
@@ -232,6 +270,7 @@ def apply_cleaners(text: str) -> str:
     Add new cleaners to the cleaners list to extend functionality.
     """
     cleaners = [
+        clean_urllink,
         remove_double_spaces,
         normalize_newlines,
     ]
@@ -251,7 +290,6 @@ def display_journal(stdscr, file_path, entries, total_entries, longest_streak):
     curses.init_pair(2, curses.COLOR_YELLOW, curses.COLOR_BLACK)
     curses.init_pair(3, curses.COLOR_GREEN, curses.COLOR_BLACK)
     curses.init_pair(4, curses.COLOR_WHITE, curses.COLOR_BLACK)
-    curses.init_pair(5, curses.COLOR_CYAN, curses.COLOR_BLACK)  # Cleaned text
 
     current_index = 0
     scroll_offset = 0
@@ -337,14 +375,11 @@ def display_journal(stdscr, file_path, entries, total_entries, longest_streak):
             available_rows = height - content_start_row - 2  # Leave room for footer
 
             # Display text with scroll offset
-            text_color = curses.color_pair(5) if cleaned_mode else curses.A_NORMAL
             for i, line in enumerate(
                 text_lines[scroll_offset : scroll_offset + available_rows]
             ):
                 try:
-                    stdscr.addstr(
-                        content_start_row + i, 1, line[: width - 2], text_color
-                    )
+                    stdscr.addstr(content_start_row + i, 1, line[: width - 2])
                 except curses.error:
                     pass  # Ignore if we run out of space
 
