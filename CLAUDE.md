@@ -9,7 +9,9 @@ This is a blog/journal analysis tool for the Blog Authorship Corpus dataset. The
 ## Dataset Context
 
 - **Source**: Blog Authorship Corpus from HuggingFace
-- **Filtering**: Only blogs >100kb are kept in `/data` directory
+- **Filtering**:
+  - Only blogs >100kb are kept in `/data` directory
+  - CSV output excludes journals with <30 total entries
 - **Format**: XML files named as `author_id.gender.age.job.horoscope.xml`
   - Example: `4334776.male.24.Engineering.Aquarius.xml`
 - **Content**: Each file contains `<date>` and `<post>` tags with blog entries
@@ -46,6 +48,8 @@ Parses all XML files in `/data` and generates `journal_analysis.csv` with compre
   - **Continuity metrics**: total_entries, num_streaks, isolated_entries, longest_streak, avg_streak_length, continuity_percentage, date_gaps
   - **Word metrics**: total_words, avg_words_per_entry, largest_entry_words
   - Groups multiple posts by date and combines them
+
+**Filtering**: Journals with fewer than 30 total entries are excluded from CSV output (Lines 231-233)
 
 **Output**: `journal_analysis.csv` sorted by:
 1. total_entries (descending)

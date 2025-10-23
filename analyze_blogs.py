@@ -228,6 +228,10 @@ def main():
             # Skip files that couldn't be parsed
             continue
 
+        if metrics['total_entries'] < 30:
+            # Skip journals with fewer than 30 entries
+            continue
+
         # Combine metadata and metrics (exclude job and horoscope)
         result = {
             'filename': xml_file.name,
