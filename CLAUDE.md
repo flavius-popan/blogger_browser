@@ -64,18 +64,37 @@ Parses all XML files in `/data` and generates `journal_analysis.csv` with compre
 - `continuity_percentage`: percentage of entries within streaks
 - Gaps occur when dates are not consecutive (expected_date != curr_date)
 
-### reader.py (Lines 1-378)
+### reader.py (Lines 1-541)
 Interactive journal reader with fzf selection and curses navigation.
 
 **Key Functions**:
-- `select_journal_with_fzf()`: Presents sorted list with metrics, prioritizes journals with notes
-- `parse_journal()`: Parses XML and returns chronologically sorted entries
+- `select_journal_with_fzf()`: Presents sorted list with metrics (entries, longest streak, num streaks, avg words), prioritizes journals with notes
+- `parse_journal()`: Parses XML and returns chronologically sorted entries with metrics (tokens, chars, words)
 - `display_journal()`: Curses TUI with navigation and scrolling
 - `save_note_to_csv()` / `get_current_note()`: Persist notes field in CSV
+- `rough_token_estimate()`: Estimates token count using average of char/4 and word*1.33 methods
+
+**Text Cleaning System** (Lines 219-283):
+The reader includes a modular text cleaning pipeline to improve readability:
+- `clean_urllink()`: Removes `urlLink` markers while preserving URLs and anchor text
+  - Handles empty urlLinks, plain URLs, and descriptive anchor text
+  - Cleans up spacing and punctuation artifacts
+- `remove_double_spaces()`: Collapses multiple consecutive spaces to single space
+- `normalize_newlines()`: Reduces multiple blank lines to maximum one blank line
+  - Handles blank lines containing only whitespace (spaces/tabs)
+- `apply_cleaners()`: Applies all cleaning functions in sequence
+
+**Cleaned Text Features**:
+- Toggle with 'c' key between original and cleaned views
+- Cleaned text cached per entry for performance (Lines 300-304, 333-350)
+- Metrics (tokens, chars, words) recalculated for cleaned text
+- Yank ('y') copies cleaned text when in cleaned mode, original when not
 
 **Navigation Controls**:
 - Arrow keys or hjkl (vim-style): navigate entries and scroll
 - `n`: Add/edit note for current journal
+- `c`: Toggle between cleaned and original text view
+- `y`: Yank (copy) current entry to clipboard via pbcopy
 - `q`: Return to fzf picker
 
 **Display Logic**:
@@ -83,16 +102,21 @@ Interactive journal reader with fzf selection and curses navigation.
 - Posts from same date are reversed (last post appears first)
 - Text wrapping respects word boundaries at terminal width
 - Scrolling when content exceeds screen height
+- Footer displays metrics: token estimate, character count, and word count for current entry
+- Metrics update dynamically when toggling between cleaned/original text
 
 ## File Structure
 
 ```
 .
-├── data/                     # XML journal files (gitignored)
-├── analyze_blogs.py          # Journal analysis script
-├── reader.py                 # Interactive journal reader
-├── journal_analysis.csv      # Generated metrics (gitignored)
-└── README.md                 # Dataset documentation
+├── data/                       # XML journal files (gitignored)
+├── img/                        # Screenshots for documentation
+├── analyze_blogs.py            # Journal analysis script
+├── reader.py                   # Interactive journal reader
+├── test_urllink_cleaning.py    # Test suite for text cleaning functions
+├── journal_analysis.csv        # Generated metrics (gitignored)
+├── README.md                   # Dataset documentation
+└── CLAUDE.md                   # Project documentation (this file)
 ```
 
 ## Important Implementation Details
@@ -109,19 +133,40 @@ Interactive journal reader with fzf selection and curses navigation.
 - Truncated to 30 chars in fzf display
 
 ### Curses TUI Pattern
-- `curses.wrapper()` handles setup/teardown (reader.py:369-371)
-- Temporarily exits curses for note input (reader.py:300)
-- Must re-initialize after `curses.endwin()` (reader.py:321-323)
+- `curses.wrapper()` handles setup/teardown (reader.py:532-534)
+- Temporarily exits curses for note input (reader.py:424)
+- Must re-initialize after `curses.endwin()` (reader.py:445-447)
 - Handles terminal resize via `getmaxyx()` on each refresh
+
+### Token Estimation
+- `rough_token_estimate()` uses hybrid approach: `((chars/4) + (words*1.33)) / 2`
+- Provides rough approximation without external dependencies
+- Displayed in footer along with exact character and word counts
+- Recalculated when toggling between cleaned/original text
+
+### Clipboard Integration (macOS)
+- 'y' key yanks current entry to clipboard using `pbcopy`
+- Works with both cleaned and original text modes
+- Silently fails if pbcopy unavailable (reader.py:449-467)
 
 ## Testing Approach
 
-When modifying analysis logic:
+### Testing Analysis Logic
+When modifying `analyze_blogs.py`:
 1. Test with a known journal file
 2. Verify metrics match manual calculation
 3. Check edge cases: single entry, no consecutive dates, multiple posts per day
 
-When modifying reader:
+### Testing Reader
+When modifying `reader.py`:
 1. Test with various terminal sizes
 2. Verify scrolling behavior with long entries
 3. Check note persistence in CSV
+4. Test cleaned text mode toggle functionality
+
+### Testing Text Cleaning
+Run `test_urllink_cleaning.py` to verify cleaning functions:
+- Tests `clean_urllink()` against real corpus patterns
+- Tests `apply_cleaners()` integration
+- Covers edge cases: empty urlLinks, URLs, anchor text, multiple urlLinks
+- Includes real examples from the corpus for validation
