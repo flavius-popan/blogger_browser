@@ -139,7 +139,17 @@ def parse_journal(file_path):
         post_list.reverse()
         combined_text = "\n\n".join(post_list)
         token_count = rough_token_estimate(combined_text)
-        entries.append({"date": date, "text": combined_text, "token_count": token_count})
+        char_count = len(combined_text)
+        word_count = len(combined_text.split())
+        entries.append(
+            {
+                "date": date,
+                "text": combined_text,
+                "token_count": token_count,
+                "char_count": char_count,
+                "word_count": word_count,
+            }
+        )
 
     # Sort by date
     entries.sort(key=lambda x: x["date"])
@@ -287,22 +297,26 @@ def display_journal(stdscr, file_path, entries, total_entries, longest_streak):
                     pass  # Ignore if we run out of space
 
             # Footer with controls
-            footer = (
-                "← Prev | Next → | ↑↓ Scroll | n: Note | y: Yank | q: Back"
-            )
+            footer = "← Prev | Next → | ↑↓ Scroll | n: Note | y: Yank | q: Back"
             try:
                 stdscr.addstr(height - 1, 0, footer[: width - 1], curses.A_DIM)
             except curses.error:
                 pass
 
-            # Token count on bottom right
-            token_text = f"~{token_count} tokens"
+            # Metrics (tokens, chars, words) on bottom right
+            char_count = entry.get("char_count", 0)
+            word_count = entry.get("word_count", 0)
+            metrics_text = (
+                f"~{token_count} tokens | {char_count} chars | {word_count} words"
+            )
             try:
-                token_x = width - len(token_text) - 1
-                if token_x > len(footer) + 2:  # Only show if there's space
+                metrics_x = width - len(metrics_text) - 1
+                if metrics_x > len(footer) + 2:  # Only show if there's space
                     stdscr.addstr(
-                        height - 1, token_x, token_text,
-                        curses.color_pair(4) | curses.A_DIM
+                        height - 1,
+                        metrics_x,
+                        metrics_text,
+                        curses.color_pair(4) | curses.A_DIM,
                     )
             except curses.error:
                 pass
