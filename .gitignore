@@ -1,0 +1,6 @@
+blogs.zip
+.venv
+__pycache__
+data/
+journal_analysis.csv
+
