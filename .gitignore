@@ -1,6 +1,6 @@
 blogs.zip
 .venv
 __pycache__
-data/
+data/*.xml
 journal_analysis.csv
 
