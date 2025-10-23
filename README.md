@@ -4,6 +4,22 @@
 
 This project enhances the [Blog Authorship Corpus](https://www.kaggle.com/datasets/rtatman/blog-authorship-corpus/data) dataset with a custom analyzer and interactive reader to find high-quality, consistent bloggers.
 
+## Setup
+
+Run the setup script to automatically download, filter, analyze, and launch the reader:
+
+```bash
+./setup.sh
+```
+
+The script handles everything: downloading the dataset from HuggingFace, filtering for high quality journals, checking dependencies, running analysis, and launching the interactive reader.
+
+**Options**: Run `./setup.sh --help` for configuration options.
+
+After the initial one-time setup, simply run `python3 reader.py` to browse journals.
+
+**Dependencies**: Python 3, `fzf` (the setup script will offer to install it via Homebrew if missing).
+
 ## Features
 
 ### Reader UI (`reader.py`)
@@ -23,23 +39,6 @@ This project enhances the [Blog Authorship Corpus](https://www.kaggle.com/datase
 - Computes word statistics (total words, average per entry, largest entry)
 - Filters journals to those with 30+ entries
 - Generates `journal_analysis.csv` sorted by total entries and longest streak
-
-
-## Setup
-
-Run the setup script to automatically download, filter, analyze, and launch the reader:
-
-```bash
-./setup.sh
-```
-
-The script handles everything: downloading the dataset from HuggingFace, filtering to quality journals (>100kb), checking dependencies, running analysis, and launching the interactive reader.
-
-**Options**: Run `./setup.sh --help` for configuration options.
-
-After initial setup, simply run `python3 reader.py` to browse journals.
-
-**Dependencies**: Python 3, `fzf` (the setup script will offer to install it via Homebrew if missing).
 
 ## Dataset Information
 
