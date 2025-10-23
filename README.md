@@ -1,6 +1,6 @@
 # Blogger Browser
 
-![Blogger Browser Reader](img/blogger_browser.mp4)
+![Blogger Browser Reader](img/blogger_browser.gif)
 
 This project enhances the [Blog Authorship Corpus](https://www.kaggle.com/datasets/rtatman/blog-authorship-corpus/data) dataset with a custom analyzer and interactive reader to find high-quality, consistent bloggers.
 
