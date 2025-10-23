@@ -288,7 +288,7 @@ def display_journal(stdscr, file_path, entries, total_entries, longest_streak):
 
             # Footer with controls
             footer = (
-                "← Prev | Next → | ↑↓ Scroll | n: Add/Edit Note | q: Back to picker"
+                "← Prev | Next → | ↑↓ Scroll | n: Note | y: Yank | q: Back"
             )
             try:
                 stdscr.addstr(height - 1, 0, footer[: width - 1], curses.A_DIM)
@@ -341,6 +341,21 @@ def display_journal(stdscr, file_path, entries, total_entries, longest_streak):
             # Re-initialize curses
             stdscr.clear()
             stdscr.refresh()
+
+        elif key == ord("y") or key == ord("Y"):
+            # Yank (copy) current post to clipboard using pbcopy
+            if entries:
+                entry = entries[current_index]
+                text = entry["text"]
+                try:
+                    subprocess.run(
+                        ["pbcopy"],
+                        input=text,
+                        text=True,
+                        check=True,
+                    )
+                except subprocess.CalledProcessError:
+                    pass  # Silently fail if pbcopy not available
 
         elif key == curses.KEY_RIGHT and current_index < total_entries - 1:
             current_index += 1
