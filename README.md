@@ -1,6 +1,6 @@
-# Journal Hunter
+# Blogger Browser
 
-![Journal Hunter Reader](img/journal_hunter.png)
+![Blogger Browser Reader](img/blogger_browser.png)
 
 This project enhances the [Blog Authorship Corpus](https://www.kaggle.com/datasets/rtatman/blog-authorship-corpus/data) dataset with a custom analyzer and interactive reader to find high-quality, consistent bloggers.
 
