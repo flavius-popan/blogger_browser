@@ -4,9 +4,7 @@
 
 This project enhances the [Blog Authorship Corpus](https://www.kaggle.com/datasets/rtatman/blog-authorship-corpus/data) dataset with a custom analyzer and interactive reader to find high-quality, consistent bloggers.
 
-## Setup
-
-Run the setup script to automatically download, filter, analyze, and launch the reader:
+## Fully Automated
 
 ```bash
 ./setup.sh
