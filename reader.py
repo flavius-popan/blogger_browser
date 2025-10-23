@@ -260,8 +260,11 @@ def remove_double_spaces(text: str) -> str:
 
 
 def normalize_newlines(text: str) -> str:
-    """Reduce multiple consecutive newlines to max one blank line."""
-    return re.sub(r"\n{3,}", "\n\n", text)
+    """Reduce multiple consecutive newlines to max one blank line.
+
+    Handles blank lines that contain only whitespace (spaces/tabs).
+    """
+    return re.sub(r"\n(?:[ \t]*\n)+", "\n\n", text)
 
 
 def apply_cleaners(text: str) -> str:
