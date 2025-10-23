@@ -13,9 +13,10 @@
 #   6. Launches the interactive reader
 #
 # USAGE:
-#   ./setup.sh              # Run normal setup
-#   ./setup.sh --force      # Force re-analysis even if CSV exists
-#   ./setup.sh --help       # Show help message
+#   ./setup_browser.sh                   # Run normal setup
+#   ./setup_browser.sh --force           # Force re-analysis even if CSV exists
+#   ./setup_browser.sh --keep-source     # Keep blogs.zip and blogs/ after filtering
+#   ./setup_browser.sh --help            # Show help message
 #
 # IDEMPOTENT: Safe to run multiple times. Steps are skipped if already completed.
 #
@@ -81,10 +82,11 @@ show_help() {
 Blog Authorship Corpus Setup Script
 
 USAGE:
-    ./setup.sh [OPTIONS]
+    ./setup_browser.sh [OPTIONS]
 
 OPTIONS:
     --force         Force re-analysis even if CSV already exists
+    --keep-source   Keep blogs.zip and blogs/ directory (auto-deleted by default)
     --help          Show this help message
 
 CONFIGURATION:
@@ -93,12 +95,13 @@ CONFIGURATION:
     - MIN_ENTRIES: Minimum entries per journal (default: ${MIN_ENTRIES})
 
 EXAMPLES:
-    ./setup.sh                    # Run normal setup
-    ./setup.sh --force            # Force re-run of analysis
+    ./setup_browser.sh                    # Run normal setup (auto-cleanup)
+    ./setup_browser.sh --force            # Force re-run of analysis
+    ./setup_browser.sh --keep-source      # Preserve original dataset files
 
     # To change file size threshold, edit MIN_FILE_SIZE in this script
     # Then re-run after clearing data directory:
-    rm -rf data/* && ./setup.sh
+    rm -rf data/* && ./setup_browser.sh
 
 EOF
 }
@@ -108,11 +111,16 @@ EOF
 ################################################################################
 
 FORCE_ANALYSIS=false
+KEEP_SOURCE=false
 
 while [[ $# -gt 0 ]]; do
     case $1 in
         --force)
             FORCE_ANALYSIS=true
+            shift
+            ;;
+        --keep-source)
+            KEEP_SOURCE=true
             shift
             ;;
         --help|-h)
@@ -121,7 +129,7 @@ while [[ $# -gt 0 ]]; do
             ;;
         *)
             error "Unknown option: $1"
-            echo "Run './setup.sh --help' for usage information"
+            echo "Run './setup_browser.sh --help' for usage information"
             exit 1
             ;;
     esac
@@ -199,20 +207,11 @@ download_dataset() {
         return 0
     fi
 
-    info "Preparing to download Blog Authorship Corpus (~300MB)..."
+    info "Downloading Blog Authorship Corpus from HuggingFace (~300MB)..."
     echo ""
-    read -p "Download dataset from HuggingFace? (y/n) " -n 1 -r
-    echo
-
-    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-        warning "Download cancelled. Exiting."
-        exit 0
-    fi
-
-    info "Downloading blogs.zip from HuggingFace..."
-    info "This may take a few minutes depending on your connection..."
 
     if curl -L -o "$zip_file" "$DATASET_URL" --progress-bar; then
+        echo ""
         success "Download complete: $zip_file"
     else
         error "Download failed. Please check your internet connection and try again."
@@ -260,7 +259,7 @@ filter_files() {
 
     if [ "$existing_count" -gt 0 ]; then
         success "$DATA_DIR already contains $existing_count XML files, skipping filtering"
-        info "To re-filter with different criteria, run: rm -rf $DATA_DIR/* && ./setup.sh"
+        info "To re-filter with different criteria, run: rm -rf $DATA_DIR/* && ./setup_browser.sh"
         return 0
     fi
 
@@ -270,23 +269,23 @@ filter_files() {
     fi
 
     info "Filtering journals larger than ${MIN_FILE_SIZE}..."
-    info "This will copy files from $EXTRACT_DIR/ to $DATA_DIR/"
 
     # Count total files before filtering
-    local total_files=$(find "$EXTRACT_DIR" -name "*.xml" | wc -l | tr -d ' ')
-    info "Total XML files in dataset: $total_files"
+    local total_files=$(find "$EXTRACT_DIR" -name "*.xml" 2>/dev/null | wc -l | tr -d ' ')
 
-    # Copy files larger than MIN_FILE_SIZE
-    find "$EXTRACT_DIR" -name "*.xml" -size "+${MIN_FILE_SIZE}" -exec cp {} "$DATA_DIR/" \;
+    # Copy files larger than MIN_FILE_SIZE (quietly)
+    find "$EXTRACT_DIR" -name "*.xml" -size "+${MIN_FILE_SIZE}" -exec cp {} "$DATA_DIR/" \; 2>/dev/null
 
-    local filtered_count=$(find "$DATA_DIR" -name "*.xml" | wc -l | tr -d ' ')
-    success "Filtered $filtered_count files (>${MIN_FILE_SIZE}) to $DATA_DIR/"
+    local filtered_count=$(find "$DATA_DIR" -name "*.xml" 2>/dev/null | wc -l | tr -d ' ')
 
     # Calculate percentage
+    local percentage=0
     if [ "$total_files" -gt 0 ]; then
-        local percentage=$((filtered_count * 100 / total_files))
-        info "Selected ${percentage}% of total files"
+        percentage=$((filtered_count * 100 / total_files))
     fi
+
+    success "Copied $filtered_count of $total_files files (${percentage}%, >${MIN_FILE_SIZE}) to $DATA_DIR/"
+    sleep 1
 }
 
 ################################################################################
@@ -296,31 +295,22 @@ filter_files() {
 cleanup_original_data() {
     local zip_file="${DOWNLOAD_DIR}/blogs.zip"
 
-    if [ ! -d "$EXTRACT_DIR" ]; then
+    if [ ! -d "$EXTRACT_DIR" ] && [ ! -f "$zip_file" ]; then
         # Already cleaned up
         return 0
     fi
 
-    echo ""
-    info "The original $EXTRACT_DIR directory contains all 19,320 blog files."
-    info "You can safely delete it to save disk space (~2GB)."
-    echo ""
-    read -p "Delete $EXTRACT_DIR directory and blogs.zip? (y/n) " -n 1 -r
-    echo
-
-    if [[ $REPLY =~ ^[Yy]$ ]]; then
-        info "Removing $EXTRACT_DIR..."
-        rm -rf "$EXTRACT_DIR"
-
-        if [ -f "$zip_file" ]; then
-            info "Removing $zip_file..."
-            rm -f "$zip_file"
-        fi
-
-        success "Cleanup complete"
-    else
-        info "Keeping $EXTRACT_DIR and $zip_file"
+    if [ "$KEEP_SOURCE" = true ]; then
+        info "Keeping source files (blogs.zip and $EXTRACT_DIR directory)"
+        return 0
     fi
+
+    info "Cleaning up source files (~2GB)..."
+
+    rm -rf "$EXTRACT_DIR" 2>/dev/null
+    rm -f "$zip_file" 2>/dev/null
+
+    success "Removed blogs.zip and $EXTRACT_DIR directory"
 }
 
 ################################################################################
@@ -330,7 +320,7 @@ cleanup_original_data() {
 run_analysis() {
     if [ -f "$OUTPUT_CSV" ] && [ "$FORCE_ANALYSIS" = false ]; then
         success "$OUTPUT_CSV already exists, skipping analysis"
-        info "To force re-analysis, run: ./setup.sh --force"
+        info "To force re-analysis, run: ./setup_browser.sh --force"
         return 0
     fi
 
@@ -339,17 +329,18 @@ run_analysis() {
         exit 1
     fi
 
-    local file_count=$(find "$DATA_DIR" -name "*.xml" | wc -l | tr -d ' ')
+    local file_count=$(find "$DATA_DIR" -name "*.xml" 2>/dev/null | wc -l | tr -d ' ')
 
     if [ "$file_count" -eq 0 ]; then
         error "No XML files found in $DATA_DIR/"
         exit 1
     fi
 
-    info "Running analysis on $file_count journal files..."
-    info "Journals with <${MIN_ENTRIES} entries will be filtered out by analyze_blogs.py"
+    info "Running analysis on $file_count journal files (filtering to ${MIN_ENTRIES}+ entries)..."
+    echo ""
 
     if python3 analyze_blogs.py; then
+        echo ""
         success "Analysis complete: $OUTPUT_CSV"
     else
         error "Analysis failed"
@@ -374,17 +365,26 @@ start_reader() {
 
     # Check for fzf again before starting reader
     if ! command -v fzf &> /dev/null; then
+        echo ""
         warning "fzf is not installed. Cannot start interactive reader."
         info "Install fzf with: brew install fzf"
         info "Then run: python3 reader.py"
+        echo ""
         exit 0
     fi
 
     echo ""
-    success "Setup complete! Starting interactive journal reader..."
-    info "Press 'q' to exit the reader"
+    echo "=========================================="
+    success "Setup complete!"
+    echo "=========================================="
     echo ""
-    sleep 1
+    info "The journal reader is ready to launch."
+    info "From now on, simply run: ${GREEN}python3 reader.py${NC}"
+    info "(No need to re-run this setup script)"
+    echo ""
+    info "Launching reader in 3 seconds..."
+    sleep 3
+    echo ""
 
     python3 reader.py
 }
