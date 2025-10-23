@@ -27,26 +27,19 @@ This project enhances the [Blog Authorship Corpus](https://www.kaggle.com/datase
 
 ## Setup
 
-1. Download `blogs.zip` from the [HuggingFace](https://huggingface.co/datasets/barilan/blog_authorship_corpus) repo
-2. Unzip in the root project directory to create a `/blogs` directory
-3. Filter the dataset by file size:
+Run the setup script to automatically download, filter, analyze, and launch the reader:
 
-   The original dataset contains 19,320 blog files, but many are too short for meaningful analysis. Filtering to blogs larger than 100kb (approximately 1,700 files) focuses on higher-quality, more substantial journals. You can adjust the threshold or copy all files as desired.
+```bash
+./setup.sh
+```
 
-   **macOS/Linux command** to copy files >100kb:
-   ```bash
-   find blogs -name "*.xml" -size +100k -exec cp {} data/ \;
-   ```
+The script handles everything: downloading the dataset from HuggingFace, filtering to quality journals (>100kb), checking dependencies, running analysis, and launching the interactive reader.
 
-   Alternatively, manually sort files in `/blogs` by size and copy desired files to `/data`.
+**Options**: Run `./setup.sh --help` for configuration options.
 
-   Optionally delete the original `/blogs` directory to save space after copying.
+After initial setup, simply run `python3 reader.py` to browse journals.
 
-4. Install `fzf` via `brew install fzf` (macOS) or your system's package manager
-5. Run `python analyze_blogs.py` to generate `journal_analysis.csv`
-6. Run `python reader.py` to interactively browse journals
-
-**Dependencies**: Python 3 standard library, `fzf` (command-line fuzzy finder). The `curses` module is included with Python on Unix/macOS systems.
+**Dependencies**: Python 3, `fzf` (the setup script will offer to install it via Homebrew if missing).
 
 ## Dataset Information
 
@@ -87,3 +80,29 @@ The original 2006 research paper that inspired the dataset curation is included 
 The corpus may be freely used for non-commercial research purposes. Publications using this dataset should cite:
 
 J. Schler, M. Koppel, S. Argamon and J. Pennebaker (2006). Effects of Age and Gender on Blogging in Proceedings of 2006 AAAI Spring Symposium on Computational Approaches for Analyzing Weblogs. http://www.cs.biu.ac.il/~schlerj/schler_springsymp06.pdf
+
+---
+
+## Manual Setup (Advanced)
+
+If you prefer manual control over the setup process:
+
+1. Download `blogs.zip` from the [HuggingFace](https://huggingface.co/datasets/barilan/blog_authorship_corpus) repo
+2. Unzip in the root project directory to create a `/blogs` directory
+3. Filter the dataset by file size:
+
+   The original dataset contains 19,320 blog files, but many are too short for meaningful analysis. Filtering to blogs larger than 100kb (approximately 1,700 files) focuses on higher-quality, more substantial journals. You can adjust the threshold or copy all files as desired.
+
+   **macOS/Linux command** to copy files >100kb:
+   ```bash
+   mkdir -p data
+   find blogs -name "*.xml" -size +100k -exec cp {} data/ \;
+   ```
+
+   Alternatively, manually sort files in `/blogs` by size and copy desired files to `/data`.
+
+   Optionally delete the original `/blogs` directory to save space after copying.
+
+4. Install `fzf` via `brew install fzf` (macOS) or your system's package manager
+5. Run `python3 analyze_blogs.py` to generate `journal_analysis.csv`
+6. Run `python3 reader.py` to interactively browse journals

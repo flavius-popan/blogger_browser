@@ -21,7 +21,26 @@ This is a blog/journal analysis tool for the Blog Authorship Corpus dataset. The
 
 ## Key Commands
 
-### Analysis Pipeline
+### Automated Setup (Recommended)
+```bash
+# Run complete setup: download, extract, filter, analyze, and launch reader
+./setup.sh
+
+# Available options:
+./setup.sh --help          # Show all options
+./setup.sh --force         # Force re-analysis even if CSV exists
+./setup.sh --keep-source   # Keep blogs.zip and blogs/ after filtering
+```
+
+The setup script is idempotent and handles:
+- Downloading dataset from HuggingFace (~300MB)
+- Extracting blogs.zip
+- Filtering to files >100kb (configurable via `MIN_FILE_SIZE` variable)
+- Dependency checking and optional fzf installation
+- Running analysis
+- Launching the reader
+
+### Manual Analysis Pipeline
 ```bash
 # 1. Analyze all journals and generate CSV with metrics
 python analyze_blogs.py
@@ -35,6 +54,10 @@ python reader.py
 - `reader.py` requires:
   - `fzf` (command-line fuzzy finder)
   - `curses` (terminal UI, standard library on Unix)
+- `setup.sh` requires:
+  - `curl` (for downloading dataset)
+  - `unzip` (for extracting archive)
+  - `brew` (optional, for installing fzf)
 
 ## Code Architecture
 
@@ -111,6 +134,7 @@ The reader includes a modular text cleaning pipeline to improve readability:
 .
 ├── data/                       # XML journal files (gitignored)
 ├── img/                        # Screenshots for documentation
+├── setup.sh                    # Automated setup script (download, filter, analyze, launch)
 ├── analyze_blogs.py            # Journal analysis script
 ├── reader.py                   # Interactive journal reader
 ├── test_urllink_cleaning.py    # Test suite for text cleaning functions
