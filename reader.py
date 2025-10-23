@@ -216,6 +216,30 @@ def get_current_note(filename):
     return ""
 
 
+def remove_double_spaces(text: str) -> str:
+    """Remove multiple consecutive spaces."""
+    return re.sub(r" {2,}", " ", text)
+
+
+def normalize_newlines(text: str) -> str:
+    """Reduce multiple consecutive newlines to max one blank line."""
+    return re.sub(r"\n{3,}", "\n\n", text)
+
+
+def apply_cleaners(text: str) -> str:
+    """
+    Apply all text cleaners in sequence.
+    Add new cleaners to the cleaners list to extend functionality.
+    """
+    cleaners = [
+        remove_double_spaces,
+        normalize_newlines,
+    ]
+    for cleaner in cleaners:
+        text = cleaner(text)
+    return text
+
+
 def display_journal(stdscr, file_path, entries, total_entries, longest_streak):
     """Display journal with curses TUI and navigation."""
     # Set up curses
@@ -227,9 +251,15 @@ def display_journal(stdscr, file_path, entries, total_entries, longest_streak):
     curses.init_pair(2, curses.COLOR_YELLOW, curses.COLOR_BLACK)
     curses.init_pair(3, curses.COLOR_GREEN, curses.COLOR_BLACK)
     curses.init_pair(4, curses.COLOR_WHITE, curses.COLOR_BLACK)
+    curses.init_pair(5, curses.COLOR_CYAN, curses.COLOR_BLACK)  # Cleaned text
 
     current_index = 0
     scroll_offset = 0
+
+    # Cleaned text mode state
+    cleaned_mode = False
+    cleaned_text_cache = None
+    cleaned_metrics_cache = None
 
     while True:
         stdscr.clear()
@@ -256,8 +286,27 @@ def display_journal(stdscr, file_path, entries, total_entries, longest_streak):
         if entries:
             entry = entries[current_index]
             date_str = entry["date"].strftime("%B %d, %Y (%A)")
-            text = entry["text"]
-            token_count = entry.get("token_count", 0)
+
+            # Apply text cleaning if in cleaned mode
+            if cleaned_mode:
+                if cleaned_text_cache is None:
+                    # Generate cleaned text and cache it
+                    cleaned_text_cache = apply_cleaners(entry["text"])
+                    # Recalculate metrics for cleaned text
+                    cleaned_metrics_cache = {
+                        "token_count": rough_token_estimate(cleaned_text_cache),
+                        "char_count": len(cleaned_text_cache),
+                        "word_count": len(cleaned_text_cache.split()),
+                    }
+                text = cleaned_text_cache
+                token_count = cleaned_metrics_cache.get("token_count", 0)
+                char_count = cleaned_metrics_cache.get("char_count", 0)
+                word_count = cleaned_metrics_cache.get("word_count", 0)
+            else:
+                text = entry["text"]
+                token_count = entry.get("token_count", 0)
+                char_count = entry.get("char_count", 0)
+                word_count = entry.get("word_count", 0)
 
             # Display date
             stdscr.addstr(
@@ -288,24 +337,27 @@ def display_journal(stdscr, file_path, entries, total_entries, longest_streak):
             available_rows = height - content_start_row - 2  # Leave room for footer
 
             # Display text with scroll offset
+            text_color = curses.color_pair(5) if cleaned_mode else curses.A_NORMAL
             for i, line in enumerate(
                 text_lines[scroll_offset : scroll_offset + available_rows]
             ):
                 try:
-                    stdscr.addstr(content_start_row + i, 1, line[: width - 2])
+                    stdscr.addstr(
+                        content_start_row + i, 1, line[: width - 2], text_color
+                    )
                 except curses.error:
                     pass  # Ignore if we run out of space
 
             # Footer with controls
-            footer = "← Prev | Next → | ↑↓ Scroll | n: Note | y: Yank | q: Back"
+            clean_hint = "c: Original" if cleaned_mode else "c: Clean"
+            footer = f"← Prev | Next → | ↑↓ Scroll | {clean_hint} | n: Note | y: Yank | q: Back"
             try:
                 stdscr.addstr(height - 1, 0, footer[: width - 1], curses.A_DIM)
             except curses.error:
                 pass
 
             # Metrics (tokens, chars, words) on bottom right
-            char_count = entry.get("char_count", 0)
-            word_count = entry.get("word_count", 0)
+            # char_count and word_count already set above based on cleaned_mode
             metrics_text = (
                 f"~{token_count} tokens | {char_count} chars | {word_count} words"
             )
@@ -360,7 +412,12 @@ def display_journal(stdscr, file_path, entries, total_entries, longest_streak):
             # Yank (copy) current post to clipboard using pbcopy
             if entries:
                 entry = entries[current_index]
-                text = entry["text"]
+                # Use cleaned text if in cleaned mode, otherwise use original
+                text = (
+                    cleaned_text_cache
+                    if cleaned_mode and cleaned_text_cache
+                    else entry["text"]
+                )
                 try:
                     subprocess.run(
                         ["pbcopy"],
@@ -371,12 +428,25 @@ def display_journal(stdscr, file_path, entries, total_entries, longest_streak):
                 except subprocess.CalledProcessError:
                     pass  # Silently fail if pbcopy not available
 
+        elif key == ord("c") or key == ord("C"):
+            # Toggle cleaned text view
+            cleaned_mode = not cleaned_mode
+            cleaned_text_cache = None
+            cleaned_metrics_cache = None
+            scroll_offset = 0  # Reset scroll for consistency
+
         elif key == curses.KEY_RIGHT and current_index < total_entries - 1:
             current_index += 1
             scroll_offset = 0  # Reset scroll when changing entries
+            # Clear cache so cleaned text regenerates for new entry
+            cleaned_text_cache = None
+            cleaned_metrics_cache = None
         elif key == curses.KEY_LEFT and current_index > 0:
             current_index -= 1
             scroll_offset = 0  # Reset scroll when changing entries
+            # Clear cache so cleaned text regenerates for new entry
+            cleaned_text_cache = None
+            cleaned_metrics_cache = None
         elif key == curses.KEY_DOWN:
             # Scroll down
             scroll_offset += 1
@@ -390,9 +460,15 @@ def display_journal(stdscr, file_path, entries, total_entries, longest_streak):
         elif key == ord("l") and current_index < total_entries - 1:  # Vim-style right
             current_index += 1
             scroll_offset = 0
+            # Clear cache so cleaned text regenerates for new entry
+            cleaned_text_cache = None
+            cleaned_metrics_cache = None
         elif key == ord("h") and current_index > 0:  # Vim-style left
             current_index -= 1
             scroll_offset = 0
+            # Clear cache so cleaned text regenerates for new entry
+            cleaned_text_cache = None
+            cleaned_metrics_cache = None
 
 
 def main():
