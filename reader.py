@@ -18,6 +18,11 @@ from datetime import datetime, timedelta
 from collections import defaultdict
 
 
+def rough_token_estimate(text: str) -> int:
+    """Estimate token count using average of two methods."""
+    return int(((len(text) / 4) + (len(text.split()) * 1.33)) / 2)
+
+
 def select_journal_with_fzf():
     """Use fzf to select a journal file, showing metrics from CSV."""
     data_dir = Path("data")
@@ -133,7 +138,8 @@ def parse_journal(file_path):
         # Reverse so last post of the day appears first
         post_list.reverse()
         combined_text = "\n\n".join(post_list)
-        entries.append({"date": date, "text": combined_text})
+        token_count = rough_token_estimate(combined_text)
+        entries.append({"date": date, "text": combined_text, "token_count": token_count})
 
     # Sort by date
     entries.sort(key=lambda x: x["date"])
@@ -210,6 +216,7 @@ def display_journal(stdscr, file_path, entries, total_entries, longest_streak):
     curses.init_pair(1, curses.COLOR_CYAN, curses.COLOR_BLACK)
     curses.init_pair(2, curses.COLOR_YELLOW, curses.COLOR_BLACK)
     curses.init_pair(3, curses.COLOR_GREEN, curses.COLOR_BLACK)
+    curses.init_pair(4, curses.COLOR_WHITE, curses.COLOR_BLACK)
 
     current_index = 0
     scroll_offset = 0
@@ -240,6 +247,7 @@ def display_journal(stdscr, file_path, entries, total_entries, longest_streak):
             entry = entries[current_index]
             date_str = entry["date"].strftime("%B %d, %Y (%A)")
             text = entry["text"]
+            token_count = entry.get("token_count", 0)
 
             # Display date
             stdscr.addstr(
@@ -284,6 +292,18 @@ def display_journal(stdscr, file_path, entries, total_entries, longest_streak):
             )
             try:
                 stdscr.addstr(height - 1, 0, footer[: width - 1], curses.A_DIM)
+            except curses.error:
+                pass
+
+            # Token count on bottom right
+            token_text = f"~{token_count} tokens"
+            try:
+                token_x = width - len(token_text) - 1
+                if token_x > len(footer) + 2:  # Only show if there's space
+                    stdscr.addstr(
+                        height - 1, token_x, token_text,
+                        curses.color_pair(4) | curses.A_DIM
+                    )
             except curses.error:
                 pass
 
