@@ -22,7 +22,7 @@
 #
 ################################################################################
 
-set -e  # Exit on error
+set -e # Exit on error
 
 ################################################################################
 # CONFIGURATION - Modify these values to adjust filtering behavior
@@ -58,19 +58,19 @@ BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 info() {
-    echo -e "${BLUE}ℹ${NC} $1"
+  echo -e "${BLUE}ℹ${NC} $1"
 }
 
 success() {
-    echo -e "${GREEN}✓${NC} $1"
+  echo -e "${GREEN}✓${NC} $1"
 }
 
 warning() {
-    echo -e "${YELLOW}⚠${NC} $1"
+  echo -e "${YELLOW}⚠${NC} $1"
 }
 
 error() {
-    echo -e "${RED}✗${NC} $1"
+  echo -e "${RED}✗${NC} $1"
 }
 
 ################################################################################
@@ -78,7 +78,7 @@ error() {
 ################################################################################
 
 show_help() {
-    cat << EOF
+  cat <<EOF
 Blog Authorship Corpus Setup Script
 
 USAGE:
@@ -114,25 +114,25 @@ FORCE_ANALYSIS=false
 KEEP_SOURCE=false
 
 while [[ $# -gt 0 ]]; do
-    case $1 in
-        --force)
-            FORCE_ANALYSIS=true
-            shift
-            ;;
-        --keep-source)
-            KEEP_SOURCE=true
-            shift
-            ;;
-        --help|-h)
-            show_help
-            exit 0
-            ;;
-        *)
-            error "Unknown option: $1"
-            echo "Run './setup_browser.sh --help' for usage information"
-            exit 1
-            ;;
-    esac
+  case $1 in
+  --force)
+    FORCE_ANALYSIS=true
+    shift
+    ;;
+  --keep-source)
+    KEEP_SOURCE=true
+    shift
+    ;;
+  --help | -h)
+    show_help
+    exit 0
+    ;;
+  *)
+    error "Unknown option: $1"
+    echo "Run './setup_browser.sh --help' for usage information"
+    exit 1
+    ;;
+  esac
 done
 
 ################################################################################
@@ -140,59 +140,59 @@ done
 ################################################################################
 
 check_dependencies() {
-    info "Checking dependencies..."
+  info "Checking dependencies..."
 
-    # Check for Python 3
-    if ! command -v python3 &> /dev/null; then
-        error "python3 is not installed. Please install Python 3 and try again."
-        exit 1
+  # Check for Python 3
+  if ! command -v python3 &>/dev/null; then
+    error "python3 is not installed. Please install Python 3 and try again."
+    exit 1
+  fi
+  success "Python 3 found: $(python3 --version)"
+
+  # Check for curl (needed for download)
+  if ! command -v curl &>/dev/null; then
+    error "curl is not installed. Please install curl and try again."
+    exit 1
+  fi
+
+  # Check for unzip
+  if ! command -v unzip &>/dev/null; then
+    error "unzip is not installed. Please install unzip and try again."
+    exit 1
+  fi
+
+  # Check for fzf
+  if ! command -v fzf &>/dev/null; then
+    warning "fzf is not installed. It's required to run the interactive reader."
+
+    # Check if Homebrew is available
+    if ! command -v brew &>/dev/null; then
+      error "Homebrew is not installed."
+      echo ""
+      echo "To install Homebrew, visit: https://brew.sh"
+      echo "Or run: /bin/bash -c \"\$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)\""
+      echo ""
+      echo "After installing Homebrew, run: brew install fzf"
+      exit 1
     fi
-    success "Python 3 found: $(python3 --version)"
 
-    # Check for curl (needed for download)
-    if ! command -v curl &> /dev/null; then
-        error "curl is not installed. Please install curl and try again."
-        exit 1
-    fi
-
-    # Check for unzip
-    if ! command -v unzip &> /dev/null; then
-        error "unzip is not installed. Please install unzip and try again."
-        exit 1
-    fi
-
-    # Check for fzf
-    if ! command -v fzf &> /dev/null; then
-        warning "fzf is not installed. It's required to run the interactive reader."
-
-        # Check if Homebrew is available
-        if ! command -v brew &> /dev/null; then
-            error "Homebrew is not installed."
-            echo ""
-            echo "To install Homebrew, visit: https://brew.sh"
-            echo "Or run: /bin/bash -c \"\$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)\""
-            echo ""
-            echo "After installing Homebrew, run: brew install fzf"
-            exit 1
-        fi
-
-        # Offer to install fzf
-        echo ""
-        read -p "Would you like to install fzf now using Homebrew? (y/n) " -n 1 -r
-        echo
-        if [[ $REPLY =~ ^[Yy]$ ]]; then
-            info "Installing fzf via Homebrew..."
-            brew install fzf
-            success "fzf installed successfully"
-        else
-            warning "Skipping fzf installation. You can install it later with: brew install fzf"
-            echo "Setup will continue, but you won't be able to run the reader until fzf is installed."
-            echo ""
-            read -p "Press Enter to continue or Ctrl+C to abort..."
-        fi
+    # Offer to install fzf
+    echo ""
+    read -p "Would you like to install fzf now using Homebrew? (y/n) " -n 1 -r
+    echo
+    if [[ $REPLY =~ ^[Yy]$ ]]; then
+      info "Installing fzf via Homebrew..."
+      brew install fzf
+      success "fzf installed successfully"
     else
-        success "fzf found"
+      warning "Skipping fzf installation. You can install it later with: brew install fzf"
+      echo "Setup will continue, but you won't be able to run the reader until fzf is installed."
+      echo ""
+      read -p "Press Enter to continue or Ctrl+C to abort..."
     fi
+  else
+    success "fzf found"
+  fi
 }
 
 ################################################################################
@@ -200,23 +200,23 @@ check_dependencies() {
 ################################################################################
 
 download_dataset() {
-    local zip_file="${DOWNLOAD_DIR}/blogs.zip"
+  local zip_file="${DOWNLOAD_DIR}/blogs.zip"
 
-    if [ -f "$zip_file" ]; then
-        success "blogs.zip already exists, skipping download"
-        return 0
-    fi
+  if [ -f "$zip_file" ]; then
+    success "blogs.zip already exists, skipping download"
+    return 0
+  fi
 
-    info "Downloading Blog Authorship Corpus from HuggingFace (~300MB)..."
+  info "Downloading Blog Authorship Corpus from HuggingFace (~300MB)..."
+  echo ""
+
+  if curl -L -o "$zip_file" "$DATASET_URL" --progress-bar; then
     echo ""
-
-    if curl -L -o "$zip_file" "$DATASET_URL" --progress-bar; then
-        echo ""
-        success "Download complete: $zip_file"
-    else
-        error "Download failed. Please check your internet connection and try again."
-        exit 1
-    fi
+    success "Download complete: $zip_file"
+  else
+    error "Download failed. Please check your internet connection and try again."
+    exit 1
+  fi
 }
 
 ################################################################################
@@ -224,26 +224,26 @@ download_dataset() {
 ################################################################################
 
 extract_dataset() {
-    local zip_file="${DOWNLOAD_DIR}/blogs.zip"
+  local zip_file="${DOWNLOAD_DIR}/blogs.zip"
 
-    if [ -d "$EXTRACT_DIR" ]; then
-        success "$EXTRACT_DIR directory already exists, skipping extraction"
-        return 0
-    fi
+  if [ -d "$EXTRACT_DIR" ]; then
+    success "$EXTRACT_DIR directory already exists, skipping extraction"
+    return 0
+  fi
 
-    if [ ! -f "$zip_file" ]; then
-        error "blogs.zip not found. Cannot extract."
-        exit 1
-    fi
+  if [ ! -f "$zip_file" ]; then
+    error "blogs.zip not found. Cannot extract."
+    exit 1
+  fi
 
-    info "Extracting blogs.zip..."
+  info "Extracting blogs.zip..."
 
-    if unzip -q "$zip_file" -d "$DOWNLOAD_DIR"; then
-        success "Extraction complete: $EXTRACT_DIR/"
-    else
-        error "Extraction failed"
-        exit 1
-    fi
+  if unzip -q "$zip_file" -d "$DOWNLOAD_DIR"; then
+    success "Extraction complete: $EXTRACT_DIR/"
+  else
+    error "Extraction failed"
+    exit 1
+  fi
 }
 
 ################################################################################
@@ -251,41 +251,41 @@ extract_dataset() {
 ################################################################################
 
 filter_files() {
-    # Create data directory if it doesn't exist
-    mkdir -p "$DATA_DIR"
+  # Create data directory if it doesn't exist
+  mkdir -p "$DATA_DIR"
 
-    # Check if files already exist in data/
-    local existing_count=$(find "$DATA_DIR" -name "*.xml" 2>/dev/null | wc -l | tr -d ' ')
+  # Check if files already exist in data/
+  local existing_count=$(find "$DATA_DIR" -name "*.xml" 2>/dev/null | wc -l | tr -d ' ')
 
-    if [ "$existing_count" -gt 0 ]; then
-        success "$DATA_DIR already contains $existing_count XML files, skipping filtering"
-        info "To re-filter with different criteria, run: rm -rf $DATA_DIR/* && ./setup_browser.sh"
-        return 0
-    fi
+  if [ "$existing_count" -gt 0 ]; then
+    success "$DATA_DIR already contains $existing_count XML files, skipping filtering"
+    info "To re-filter with different criteria, run: rm -rf $DATA_DIR/* && ./setup_browser.sh"
+    return 0
+  fi
 
-    if [ ! -d "$EXTRACT_DIR" ]; then
-        error "$EXTRACT_DIR directory not found. Cannot filter files."
-        exit 1
-    fi
+  if [ ! -d "$EXTRACT_DIR" ]; then
+    error "$EXTRACT_DIR directory not found. Cannot filter files."
+    exit 1
+  fi
 
-    info "Filtering journals larger than ${MIN_FILE_SIZE}..."
+  info "Filtering journals larger than ${MIN_FILE_SIZE}..."
 
-    # Count total files before filtering
-    local total_files=$(find "$EXTRACT_DIR" -name "*.xml" 2>/dev/null | wc -l | tr -d ' ')
+  # Count total files before filtering
+  local total_files=$(find "$EXTRACT_DIR" -name "*.xml" 2>/dev/null | wc -l | tr -d ' ')
 
-    # Copy files larger than MIN_FILE_SIZE (quietly)
-    find "$EXTRACT_DIR" -name "*.xml" -size "+${MIN_FILE_SIZE}" -exec cp {} "$DATA_DIR/" \; 2>/dev/null
+  # Copy files larger than MIN_FILE_SIZE (quietly)
+  find "$EXTRACT_DIR" -name "*.xml" -size "+${MIN_FILE_SIZE}" -exec cp {} "$DATA_DIR/" \; 2>/dev/null
 
-    local filtered_count=$(find "$DATA_DIR" -name "*.xml" 2>/dev/null | wc -l | tr -d ' ')
+  local filtered_count=$(find "$DATA_DIR" -name "*.xml" 2>/dev/null | wc -l | tr -d ' ')
 
-    # Calculate percentage
-    local percentage=0
-    if [ "$total_files" -gt 0 ]; then
-        percentage=$((filtered_count * 100 / total_files))
-    fi
+  # Calculate percentage
+  local percentage=0
+  if [ "$total_files" -gt 0 ]; then
+    percentage=$((filtered_count * 100 / total_files))
+  fi
 
-    success "Copied $filtered_count of $total_files files (${percentage}%, >${MIN_FILE_SIZE}) to $DATA_DIR/"
-    sleep 1
+  success "Copied $filtered_count of $total_files files (${percentage}%, >${MIN_FILE_SIZE}) to $DATA_DIR/"
+  sleep 1
 }
 
 ################################################################################
@@ -293,24 +293,24 @@ filter_files() {
 ################################################################################
 
 cleanup_original_data() {
-    local zip_file="${DOWNLOAD_DIR}/blogs.zip"
+  local zip_file="${DOWNLOAD_DIR}/blogs.zip"
 
-    if [ ! -d "$EXTRACT_DIR" ] && [ ! -f "$zip_file" ]; then
-        # Already cleaned up
-        return 0
-    fi
+  if [ ! -d "$EXTRACT_DIR" ] && [ ! -f "$zip_file" ]; then
+    # Already cleaned up
+    return 0
+  fi
 
-    if [ "$KEEP_SOURCE" = true ]; then
-        info "Keeping source files (blogs.zip and $EXTRACT_DIR directory)"
-        return 0
-    fi
+  if [ "$KEEP_SOURCE" = true ]; then
+    info "Keeping source files (blogs.zip and $EXTRACT_DIR directory)"
+    return 0
+  fi
 
-    info "Cleaning up source files (~2GB)..."
+  info "Cleaning up source files (~2GB)..."
 
-    rm -rf "$EXTRACT_DIR" 2>/dev/null
-    rm -f "$zip_file" 2>/dev/null
+  rm -rf "$EXTRACT_DIR" 2>/dev/null
+  rm -f "$zip_file" 2>/dev/null
 
-    success "Removed blogs.zip and $EXTRACT_DIR directory"
+  success "Removed blogs.zip and $EXTRACT_DIR directory"
 }
 
 ################################################################################
@@ -318,34 +318,33 @@ cleanup_original_data() {
 ################################################################################
 
 run_analysis() {
-    if [ -f "$OUTPUT_CSV" ] && [ "$FORCE_ANALYSIS" = false ]; then
-        success "$OUTPUT_CSV already exists, skipping analysis"
-        info "To force re-analysis, run: ./setup_browser.sh --force"
-        return 0
-    fi
+  if [ -f "$OUTPUT_CSV" ] && [ "$FORCE_ANALYSIS" = false ]; then
+    success "$OUTPUT_CSV already exists, skipping analysis"
+    info "To force re-analysis, run: ./setup_browser.sh --force"
+    return 0
+  fi
 
-    if [ ! -f "analyze_blogs.py" ]; then
-        error "analyze_blogs.py not found in current directory"
-        exit 1
-    fi
+  if [ ! -f "analyze_blogs.py" ]; then
+    error "analyze_blogs.py not found in current directory"
+    exit 1
+  fi
 
-    local file_count=$(find "$DATA_DIR" -name "*.xml" 2>/dev/null | wc -l | tr -d ' ')
+  local file_count=$(find "$DATA_DIR" -name "*.xml" 2>/dev/null | wc -l | tr -d ' ')
 
-    if [ "$file_count" -eq 0 ]; then
-        error "No XML files found in $DATA_DIR/"
-        exit 1
-    fi
+  if [ "$file_count" -eq 0 ]; then
+    error "No XML files found in $DATA_DIR/"
+    exit 1
+  fi
 
-    info "Running analysis on $file_count journal files (filtering to ${MIN_ENTRIES}+ entries)..."
+  info "Running analysis on $file_count journal files (filtering to ${MIN_ENTRIES}+ entries)..."
+  echo ""
+
+  if python3 analyze_blogs.py; then
     echo ""
-
-    if python3 analyze_blogs.py; then
-        echo ""
-        success "Analysis complete: $OUTPUT_CSV"
-    else
-        error "Analysis failed"
-        exit 1
-    fi
+  else
+    error "Analysis failed"
+    exit 1
+  fi
 }
 
 ################################################################################
@@ -353,40 +352,40 @@ run_analysis() {
 ################################################################################
 
 start_reader() {
-    if [ ! -f "reader.py" ]; then
-        error "reader.py not found in current directory"
-        exit 1
-    fi
+  if [ ! -f "reader.py" ]; then
+    error "reader.py not found in current directory"
+    exit 1
+  fi
 
-    if [ ! -f "$OUTPUT_CSV" ]; then
-        error "$OUTPUT_CSV not found. Run analysis first."
-        exit 1
-    fi
+  if [ ! -f "$OUTPUT_CSV" ]; then
+    error "$OUTPUT_CSV not found. Run analysis first."
+    exit 1
+  fi
 
-    # Check for fzf again before starting reader
-    if ! command -v fzf &> /dev/null; then
-        echo ""
-        warning "fzf is not installed. Cannot start interactive reader."
-        info "Install fzf with: brew install fzf"
-        info "Then run: python3 reader.py"
-        echo ""
-        exit 0
-    fi
+  # Check for fzf again before starting reader
+  if ! command -v fzf &>/dev/null; then
+    echo ""
+    warning "fzf is not installed. Cannot start interactive reader."
+    info "Install fzf with: brew install fzf"
+    info "Then run: python3 reader.py"
+    echo ""
+    exit 0
+  fi
 
-    echo ""
-    echo "=========================================="
-    success "Setup complete!"
-    echo "=========================================="
-    echo ""
-    info "The journal reader is ready to launch."
-    info "From now on, simply run: ${GREEN}python3 reader.py${NC}"
-    info "(No need to re-run this setup script)"
-    echo ""
-    info "Launching reader in 3 seconds..."
-    sleep 3
-    echo ""
+  echo ""
+  echo "=========================================="
+  success "Setup complete!"
+  echo "=========================================="
+  echo ""
+  info "The journal reader is ready to launch."
+  info "From now on, simply run: ${GREEN}python3 reader.py${NC}"
+  info "(No need to re-run this setup script)"
+  echo ""
+  read -n 1 -s -r -p "Press any key to launch reader..."
+  echo ""
+  echo ""
 
-    python3 reader.py
+  python3 reader.py
 }
 
 ################################################################################
@@ -394,24 +393,19 @@ start_reader() {
 ################################################################################
 
 main() {
-    echo ""
-    echo "=========================================="
-    echo "  Blog Authorship Corpus Setup"
-    echo "=========================================="
-    echo ""
-    echo "Configuration:"
-    echo "  • Min file size: ${MIN_FILE_SIZE}"
-    echo "  • Min entries: ${MIN_ENTRIES}"
-    echo "  • Data directory: ${DATA_DIR}"
-    echo ""
+  echo ""
+  echo "=========================================="
+  echo "  Blog Authorship Corpus Setup"
+  echo "=========================================="
+  echo ""
 
-    check_dependencies
-    download_dataset
-    extract_dataset
-    filter_files
-    cleanup_original_data
-    run_analysis
-    start_reader
+  check_dependencies
+  download_dataset
+  extract_dataset
+  filter_files
+  cleanup_original_data
+  run_analysis
+  start_reader
 }
 
 # Run main function

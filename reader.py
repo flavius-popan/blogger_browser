@@ -47,8 +47,7 @@ def select_journal_with_fzf():
                 )
 
     if not csv_entries:
-        print("No entries found in journal_analysis.csv")
-        print("Run analyze_journals.py first to generate metrics")
+        print("Run ./setup.sh first to download and analyze journals")
         sys.exit(1)
 
     # Sort entries: journals with notes first (sorted by total_entries desc),
