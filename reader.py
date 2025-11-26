@@ -9,6 +9,7 @@ Left/Right arrows to navigate, 'q' to quit.
 import re
 import sys
 import csv
+import shutil
 import subprocess
 import curses
 import textwrap
@@ -281,6 +282,44 @@ def apply_cleaners(text: str) -> str:
     return text
 
 
+def export_journal(source_path: Path, cleaned_mode: bool) -> Path:
+    """
+    Export journal to exports/ directory.
+
+    If cleaned_mode: Apply cleaners to each post and save with _clean suffix
+    If not cleaned_mode: Copy file directly to exports/
+
+    Returns the path to the exported file.
+    """
+    exports_dir = Path("exports")
+    exports_dir.mkdir(exist_ok=True)
+
+    if not cleaned_mode:
+        output_path = exports_dir / source_path.name
+        shutil.copy2(source_path, output_path)
+        return output_path
+
+    # Read original file
+    with open(source_path, "r", encoding="utf-8", errors="ignore") as f:
+        content = f.read()
+
+    # Apply cleaners to each <post>...</post> content
+    def clean_post(match):
+        post_content = match.group(1)
+        cleaned_content = apply_cleaners(post_content)
+        return f"<post>{cleaned_content}</post>"
+
+    cleaned_content = re.sub(r"<post>(.*?)</post>", clean_post, content, flags=re.DOTALL)
+
+    # Write to exports with _clean suffix
+    stem = source_path.stem
+    output_path = exports_dir / f"{stem}_clean.xml"
+    with open(output_path, "w", encoding="utf-8") as f:
+        f.write(cleaned_content)
+
+    return output_path
+
+
 def display_journal(stdscr, file_path, entries, total_entries, longest_streak):
     """Display journal with curses TUI and navigation."""
     # Set up curses
@@ -297,9 +336,13 @@ def display_journal(stdscr, file_path, entries, total_entries, longest_streak):
     scroll_offset = 0
 
     # Cleaned text mode state
-    cleaned_mode = False
+    cleaned_mode = True
     cleaned_text_cache = None
     cleaned_metrics_cache = None
+
+    # Export flash message state
+    export_message = None
+    export_message_time = 0
 
     while True:
         stdscr.clear()
@@ -385,9 +428,13 @@ def display_journal(stdscr, file_path, entries, total_entries, longest_streak):
                 except curses.error:
                     pass  # Ignore if we run out of space
 
-            # Footer with controls
-            clean_hint = "c: Original" if cleaned_mode else "c: Clean"
-            footer = f"← Prev | Next → | ↑↓ Scroll | {clean_hint} | n: Note | y: Yank | q: Back"
+            # Footer with controls (or flash message)
+            if export_message and time.time() - export_message_time < 2:
+                footer = export_message
+            else:
+                export_message = None
+                clean_hint = "c: Original" if cleaned_mode else "c: Clean"
+                footer = f"← → | ↑↓ | {clean_hint} | n: Note | y: Yank | e: Export | q: Back"
             try:
                 stdscr.addstr(height - 1, 0, footer[: width - 1], curses.A_DIM)
             except curses.error:
@@ -471,6 +518,15 @@ def display_journal(stdscr, file_path, entries, total_entries, longest_streak):
             cleaned_text_cache = None
             cleaned_metrics_cache = None
             scroll_offset = 0  # Reset scroll for consistency
+
+        elif key == ord("e") or key == ord("E"):
+            # Export journal to exports/ directory
+            try:
+                export_path = export_journal(file_path, cleaned_mode)
+                export_message = f"Exported: {export_path.name}"
+            except (OSError, IOError) as e:
+                export_message = f"Export failed: {e}"
+            export_message_time = time.time()
 
         elif key == curses.KEY_RIGHT and current_index < total_entries - 1:
             current_index += 1

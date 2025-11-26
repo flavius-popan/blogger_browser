@@ -108,16 +108,18 @@ The reader includes a modular text cleaning pipeline to improve readability:
 - `apply_cleaners()`: Applies all cleaning functions in sequence
 
 **Cleaned Text Features**:
-- Toggle with 'c' key between original and cleaned views
-- Cleaned text cached per entry for performance (Lines 300-304, 333-350)
+- Cleaned mode is the default view (toggle with 'c' to see original)
+- Cleaned text cached per entry for performance
 - Metrics (tokens, chars, words) recalculated for cleaned text
 - Yank ('y') copies cleaned text when in cleaned mode, original when not
+- Export ('e') respects the current view mode
 
 **Navigation Controls**:
 - Arrow keys or hjkl (vim-style): navigate entries and scroll
 - `n`: Add/edit note for current journal
 - `c`: Toggle between cleaned and original text view
 - `y`: Yank (copy) current entry to clipboard via pbcopy
+- `e`: Export entire journal to `exports/` directory
 - `q`: Return to fzf picker
 
 **Display Logic**:
@@ -133,11 +135,14 @@ The reader includes a modular text cleaning pipeline to improve readability:
 ```
 .
 ├── data/                       # XML journal files (gitignored)
+├── exports/                    # Exported journals (gitignored)
 ├── img/                        # Screenshots for documentation
+├── tests/                      # Test suite
+│   ├── test_urllink_cleaning.py    # Text cleaning tests
+│   └── test_export.py              # Export functionality tests
 ├── setup.sh                    # Automated setup script (download, filter, analyze, launch)
 ├── analyze_blogs.py            # Journal analysis script
 ├── reader.py                   # Interactive journal reader
-├── test_urllink_cleaning.py    # Test suite for text cleaning functions
 ├── journal_analysis.csv        # Generated metrics (gitignored)
 ├── README.md                   # Dataset documentation
 └── CLAUDE.md                   # Project documentation (this file)
@@ -171,7 +176,15 @@ The reader includes a modular text cleaning pipeline to improve readability:
 ### Clipboard Integration (macOS)
 - 'y' key yanks current entry to clipboard using `pbcopy`
 - Works with both cleaned and original text modes
-- Silently fails if pbcopy unavailable (reader.py:449-467)
+- Silently fails if pbcopy unavailable
+
+### Export Feature
+- 'e' key exports the entire journal to `exports/` directory
+- Respects current view mode:
+  - Cleaned mode: exports with `_clean` suffix, all posts cleaned
+  - Original mode: copies file directly (no modification)
+- Creates `exports/` directory automatically if needed
+- Shows flash confirmation message for 2 seconds
 
 ## Testing Approach
 
@@ -187,10 +200,21 @@ When modifying `reader.py`:
 2. Verify scrolling behavior with long entries
 3. Check note persistence in CSV
 4. Test cleaned text mode toggle functionality
+5. Test export in both modes (verify `_clean` suffix and file content)
 
-### Testing Text Cleaning
-Run `test_urllink_cleaning.py` to verify cleaning functions:
+### Running Tests
+All tests are in the `tests/` directory. Run from project root:
+```bash
+python tests/test_urllink_cleaning.py  # Text cleaning tests
+python tests/test_export.py            # Export functionality tests
+```
+
+**test_urllink_cleaning.py**:
 - Tests `clean_urllink()` against real corpus patterns
 - Tests `apply_cleaners()` integration
 - Covers edge cases: empty urlLinks, URLs, anchor text, multiple urlLinks
-- Includes real examples from the corpus for validation
+
+**test_export.py**:
+- Tests export in original and cleaned modes
+- Verifies multiline regex handling
+- Confirms XML structure preservation

@@ -6,8 +6,9 @@ Tests against real patterns found in the Blog Authorship Corpus.
 
 import re
 import sys
-sys.path.insert(0, '.')
+from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).parent.parent))
 from reader import clean_urllink, apply_cleaners
 
 

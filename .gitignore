@@ -3,4 +3,5 @@ blogs.zip
 __pycache__
 data/*.xml
 journal_analysis.csv
+exports/
 
