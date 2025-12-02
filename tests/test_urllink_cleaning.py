@@ -9,7 +9,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
-from reader import clean_urllink, apply_cleaners
+from reader import clean_urllink, apply_cleaners, remove_control_characters, fix_ampersands
 
 
 def test_cleaning():
@@ -136,8 +136,63 @@ def test_real_examples():
         print()
 
 
+def test_xml_sanitization():
+    """Test XML sanitization functions."""
+
+    print("\n\nTesting XML sanitization...\n")
+
+    passed = 0
+    failed = 0
+
+    # Test control character removal
+    control_char_tests = [
+        ("Hello\x00World", "HelloWorld"),  # NULL
+        ("Test\x08text", "Testtext"),  # Backspace
+        ("Line\x0b\x0cbreak", "Linebreak"),  # Vertical tab, form feed
+        ("Keep\tthis\nand\rthis", "Keep\tthis\nand\rthis"),  # Tab, newline, CR are valid
+        ("Normal text", "Normal text"),
+    ]
+
+    print("Control character removal:")
+    for input_text, expected in control_char_tests:
+        result = remove_control_characters(input_text)
+        if result == expected:
+            print(f"  ✓ Passed")
+            passed += 1
+        else:
+            print(f"  ✗ FAILED: {repr(input_text)} -> {repr(result)} (expected {repr(expected)})")
+            failed += 1
+
+    # Test ampersand fixing
+    ampersand_tests = [
+        ("Tom & Jerry", "Tom &amp; Jerry"),  # Raw &
+        ("A&B&C", "A&amp;B&amp;C"),  # Multiple raw &
+        ("&amp; is ok", "&amp; is ok"),  # Already escaped
+        ("&lt;tag&gt;", "&lt;tag&gt;"),  # Other entities
+        ("&#123; &#xAB;", "&#123; &#xAB;"),  # Numeric entities
+        ("&quot;quoted&quot;", "&quot;quoted&quot;"),
+        ("Mix & &amp; match", "Mix &amp; &amp; match"),
+    ]
+
+    print("\nAmpersand fixing:")
+    for input_text, expected in ampersand_tests:
+        result = fix_ampersands(input_text)
+        if result == expected:
+            print(f"  ✓ Passed")
+            passed += 1
+        else:
+            print(f"  ✗ FAILED: {repr(input_text)} -> {repr(result)} (expected {repr(expected)})")
+            failed += 1
+
+    print(f"\n{'='*60}")
+    print(f"XML sanitization tests: {passed} passed, {failed} failed")
+    print(f"{'='*60}")
+
+    return failed == 0
+
+
 def test_apply_cleaners_integration():
-    """Test that apply_cleaners includes urlLink cleaning."""
+    """Test that apply_cleaners includes all cleaning functions."""
 
     print("\n\nTesting apply_cleaners() integration...\n")
 
@@ -161,6 +216,16 @@ def test_apply_cleaners_integration():
         (
             "urlLink Here  is some  text\n\n\n\nMore  urlLink content",
             "Here is some text\n\nMore content"
+        ),
+        # Control characters removed
+        (
+            "Text\x00with\x08control\x0bchars",
+            "Textwithcontrolchars"
+        ),
+        # Ampersands fixed
+        (
+            "Tom & Jerry & friends",
+            "Tom &amp; Jerry &amp; friends"
         ),
     ]
 
@@ -191,7 +256,8 @@ def test_apply_cleaners_integration():
 if __name__ == '__main__':
     success1 = test_cleaning()
     test_real_examples()
-    success2 = test_apply_cleaners_integration()
+    success2 = test_xml_sanitization()
+    success3 = test_apply_cleaners_integration()
 
-    if not (success1 and success2):
+    if not (success1 and success2 and success3):
         exit(1)

@@ -97,8 +97,10 @@ Interactive journal reader with fzf selection and curses navigation.
 - `save_note_to_csv()` / `get_current_note()`: Persist notes field in CSV
 - `rough_token_estimate()`: Estimates token count using average of char/4 and word*1.33 methods
 
-**Text Cleaning System** (Lines 219-283):
+**Text Cleaning System**:
 The reader includes a modular text cleaning pipeline to improve readability:
+- `remove_control_characters()`: Removes XML 1.0 invalid control chars (0x00-0x08, 0x0B-0x0C, 0x0E-0x1F)
+- `fix_ampersands()`: Escapes raw `&` to `&amp;` while preserving valid XML entities
 - `clean_urllink()`: Removes `urlLink` markers while preserving URLs and anchor text
   - Handles empty urlLinks, plain URLs, and descriptive anchor text
   - Cleans up spacing and punctuation artifacts
@@ -180,9 +182,11 @@ The reader includes a modular text cleaning pipeline to improve readability:
 
 ### Export Feature
 - 'e' key exports the entire journal to `exports/` directory
+- Combines multiple posts on the same date into single entries (like the reader)
+- Entries are sorted chronologically
 - Respects current view mode:
   - Cleaned mode: exports with `_clean` suffix, all posts cleaned
-  - Original mode: copies file directly (no modification)
+  - Original mode: posts combined but not cleaned
 - Creates `exports/` directory automatically if needed
 - Shows flash confirmation message for 2 seconds
 
@@ -215,6 +219,7 @@ python tests/test_export.py            # Export functionality tests
 - Covers edge cases: empty urlLinks, URLs, anchor text, multiple urlLinks
 
 **test_export.py**:
+- Tests post combination (multiple posts per date merged)
 - Tests export in original and cleaned modes
-- Verifies multiline regex handling
+- Verifies chronological ordering
 - Confirms XML structure preservation

@@ -1,20 +1,34 @@
 #!/usr/bin/env python3
 """
 Test script for export functionality.
+Tests that export combines multiple posts per date (like the reader).
 """
 
 import re
 import sys
 import shutil
 from pathlib import Path
+from collections import defaultdict
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
-from reader import export_journal, apply_cleaners
+from reader import export_journal, apply_cleaners, parse_date
 
 
-def test_export_original_mode():
-    """Test exporting in original mode (direct copy)."""
-    print("Testing export in original mode...")
+def count_unique_dates(content):
+    """Count unique dates in XML content."""
+    date_pattern = r"<date>(.*?)</date>"
+    dates = re.findall(date_pattern, content, re.DOTALL)
+    unique_dates = set()
+    for date_str in dates:
+        parsed = parse_date(date_str.strip())
+        if parsed:
+            unique_dates.add(parsed)
+    return len(unique_dates)
+
+
+def test_export_combines_posts():
+    """Test that export combines multiple posts on the same date."""
+    print("Testing post combination...")
 
     # Get a test file
     test_file = Path("data/8173.male.42.indUnk.Capricorn.xml")
@@ -22,43 +36,81 @@ def test_export_original_mode():
         print(f"Test file not found: {test_file}")
         return False
 
-    # Export in original mode
-    export_path = export_journal(test_file, cleaned_mode=False)
-
-    # Verify the file was copied
-    if not export_path.exists():
-        print(f"FAILED: Export file not created at {export_path}")
-        return False
-
-    # Verify it's an exact copy
+    # Read original to count unique dates vs total date tags
     with open(test_file, "r", encoding="utf-8", errors="ignore") as f:
         original_content = f.read()
+
+    original_date_tags = len(re.findall(r"<date>", original_content))
+    unique_dates = count_unique_dates(original_content)
+
+    # Export (original mode to test combination without cleaning)
+    export_path = export_journal(test_file, cleaned_mode=False)
 
     with open(export_path, "r", encoding="utf-8", errors="ignore") as f:
         exported_content = f.read()
 
-    if original_content != exported_content:
-        print("FAILED: Exported file content doesn't match original")
+    exported_date_tags = len(re.findall(r"<date>", exported_content))
+    exported_post_tags = len(re.findall(r"<post>", exported_content))
+
+    # Exported should have one date/post pair per unique date
+    if exported_date_tags != unique_dates:
+        print(f"FAILED: Expected {unique_dates} dates, got {exported_date_tags}")
         return False
+
+    if exported_post_tags != unique_dates:
+        print(f"FAILED: Expected {unique_dates} posts, got {exported_post_tags}")
+        return False
+
+    print(f"PASSED: Combined {original_date_tags} entries into {unique_dates} unique dates")
+    return True
+
+
+def test_export_original_mode():
+    """Test exporting in original mode (combined but not cleaned)."""
+    print("\nTesting export in original mode...")
+
+    test_file = Path("data/8173.male.42.indUnk.Capricorn.xml")
+    if not test_file.exists():
+        print(f"Test file not found: {test_file}")
+        return False
+
+    export_path = export_journal(test_file, cleaned_mode=False)
+
+    if not export_path.exists():
+        print(f"FAILED: Export file not created at {export_path}")
+        return False
+
+    # Should NOT have _clean suffix
+    if "_clean" in export_path.name:
+        print(f"FAILED: Original mode should not have _clean suffix")
+        return False
+
+    with open(export_path, "r", encoding="utf-8", errors="ignore") as f:
+        exported_content = f.read()
+
+    # urlLink should still be present (not cleaned)
+    if "urlLink" not in exported_content:
+        # Check if original has urlLink
+        with open(test_file, "r", encoding="utf-8", errors="ignore") as f:
+            if "urlLink" in f.read():
+                print("FAILED: Original mode should preserve urlLink markers")
+                return False
 
     print(f"PASSED: File exported to {export_path.name}")
     return True
 
 
 def test_export_cleaned_mode():
-    """Test exporting in cleaned mode (with cleaning applied)."""
+    """Test exporting in cleaned mode (combined and cleaned)."""
     print("\nTesting export in cleaned mode...")
 
-    # Get a test file
     test_file = Path("data/8173.male.42.indUnk.Capricorn.xml")
     if not test_file.exists():
         print(f"Test file not found: {test_file}")
         return False
 
-    # Export in cleaned mode
     export_path = export_journal(test_file, cleaned_mode=True)
 
-    # Verify the file was created with _clean suffix
     if not export_path.exists():
         print(f"FAILED: Export file not created at {export_path}")
         return False
@@ -67,90 +119,56 @@ def test_export_cleaned_mode():
         print(f"FAILED: Export file doesn't have _clean suffix: {export_path.name}")
         return False
 
-    # Read the exported content
     with open(export_path, "r", encoding="utf-8", errors="ignore") as f:
         exported_content = f.read()
 
-    # Verify posts have been cleaned
-    # Extract a sample post to check
-    post_pattern = r"<post>(.*?)</post>"
-    posts = re.findall(post_pattern, exported_content, re.DOTALL)
-
-    if not posts:
-        print("FAILED: No posts found in exported file")
+    # urlLink should be removed
+    if "urlLink" in exported_content:
+        print("FAILED: urlLink not removed in cleaned mode")
         return False
 
-    # Check that urlLink has been removed from at least one post (if it existed)
-    # Read original to compare
-    with open(test_file, "r", encoding="utf-8", errors="ignore") as f:
-        original_content = f.read()
+    # Should have valid XML structure
+    post_count = len(re.findall(r"<post>", exported_content))
+    date_count = len(re.findall(r"<date>", exported_content))
 
-    original_posts = re.findall(post_pattern, original_content, re.DOTALL)
-
-    # Check if cleaning was applied
-    cleaned_correctly = True
-    for i, (orig, cleaned) in enumerate(zip(original_posts, posts)):
-        if "urlLink" in orig:
-            if "urlLink" in cleaned:
-                print(f"FAILED: urlLink not removed from post {i}")
-                cleaned_correctly = False
-                break
-
-    # Also verify structure is preserved (same number of posts, dates, etc.)
-    date_pattern = r"<date>(.*?)</date>"
-    original_dates = re.findall(date_pattern, original_content, re.DOTALL)
-    exported_dates = re.findall(date_pattern, exported_content, re.DOTALL)
-
-    if len(original_dates) != len(exported_dates):
-        print(f"FAILED: Date count mismatch: {len(original_dates)} vs {len(exported_dates)}")
+    if post_count != date_count:
+        print(f"FAILED: Mismatched post/date count: {post_count} vs {date_count}")
         return False
 
-    if len(original_posts) != len(posts):
-        print(f"FAILED: Post count mismatch: {len(original_posts)} vs {len(posts)}")
+    if post_count == 0:
+        print("FAILED: No posts in exported file")
         return False
 
     print(f"PASSED: File exported to {export_path.name}")
-    print(f"  - Posts cleaned: {len(posts)}")
-    print(f"  - Dates preserved: {len(exported_dates)}")
+    print(f"  - Unique dates: {date_count}")
+    print(f"  - urlLink markers removed")
+    return True
 
-    return cleaned_correctly
 
+def test_chronological_order():
+    """Test that exported entries are in chronological order."""
+    print("\nTesting chronological ordering...")
 
-def test_multiline_regex():
-    """Test that the regex handles multiline content correctly."""
-    print("\nTesting multiline regex handling...")
-
-    test_content = """<date>01,January,2004</date>
-<post>First line
-Second line with urlLink here
-Third line</post>
-<date>02,January,2004</date>
-<post>Another post
-With multiple
-Lines and urlLink content</post>"""
-
-    def clean_post(match):
-        post_content = match.group(1)
-        cleaned_content = apply_cleaners(post_content)
-        return f"<post>{cleaned_content}</post>"
-
-    cleaned_content = re.sub(r"<post>(.*?)</post>", clean_post, test_content, flags=re.DOTALL)
-
-    # Verify urlLink was removed
-    if "urlLink" in cleaned_content:
-        print("FAILED: urlLink not removed from multiline content")
+    test_file = Path("data/8173.male.42.indUnk.Capricorn.xml")
+    if not test_file.exists():
+        print(f"Test file not found: {test_file}")
         return False
 
-    # Verify structure preserved
-    if cleaned_content.count("<post>") != 2:
-        print("FAILED: Post tags not preserved")
+    export_path = export_journal(test_file, cleaned_mode=False)
+
+    with open(export_path, "r", encoding="utf-8", errors="ignore") as f:
+        exported_content = f.read()
+
+    dates = re.findall(r"<date>(.*?)</date>", exported_content, re.DOTALL)
+    parsed_dates = [parse_date(d.strip()) for d in dates]
+    parsed_dates = [d for d in parsed_dates if d is not None]
+
+    # Check if sorted
+    if parsed_dates != sorted(parsed_dates):
+        print("FAILED: Dates are not in chronological order")
         return False
 
-    if cleaned_content.count("<date>") != 2:
-        print("FAILED: Date tags not preserved")
-        return False
-
-    print("PASSED: Multiline regex handling works correctly")
+    print(f"PASSED: {len(parsed_dates)} entries in chronological order")
     return True
 
 
@@ -164,12 +182,13 @@ def cleanup():
 
 if __name__ == '__main__':
     try:
-        success1 = test_multiline_regex()
+        success1 = test_export_combines_posts()
         success2 = test_export_original_mode()
         success3 = test_export_cleaned_mode()
+        success4 = test_chronological_order()
 
         print("\n" + "="*60)
-        if success1 and success2 and success3:
+        if all([success1, success2, success3, success4]):
             print("All export tests PASSED")
             print("="*60)
         else:

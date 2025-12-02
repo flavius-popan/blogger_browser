@@ -267,12 +267,30 @@ def normalize_newlines(text: str) -> str:
     return re.sub(r"\n(?:[ \t]*\n)+", "\n\n", text)
 
 
+def remove_control_characters(text: str) -> str:
+    """Remove control characters invalid in XML 1.0.
+
+    Characters 0x00-0x08, 0x0B-0x0C, 0x0E-0x1F are not valid in XML 1.0.
+    """
+    return re.sub(r"[\x00-\x08\x0b\x0c\x0e-\x1f]", "", text)
+
+
+def fix_ampersands(text: str) -> str:
+    """Fix raw & characters that should be &amp; for valid XML.
+
+    Preserves valid XML entities: &amp; &lt; &gt; &quot; &apos; &#123; &#xAB;
+    """
+    return re.sub(r"&(?!(amp|lt|gt|quot|apos|#\d+|#x[0-9a-fA-F]+);)", "&amp;", text)
+
+
 def apply_cleaners(text: str) -> str:
     """
     Apply all text cleaners in sequence.
     Add new cleaners to the cleaners list to extend functionality.
     """
     cleaners = [
+        remove_control_characters,
+        fix_ampersands,
         clean_urllink,
         remove_double_spaces,
         normalize_newlines,
@@ -286,36 +304,58 @@ def export_journal(source_path: Path, cleaned_mode: bool) -> Path:
     """
     Export journal to exports/ directory.
 
-    If cleaned_mode: Apply cleaners to each post and save with _clean suffix
-    If not cleaned_mode: Copy file directly to exports/
+    Combines multiple posts on the same date into single entries (like the reader).
+    If cleaned_mode: Apply cleaners and save with _clean suffix
+    If not cleaned_mode: Combine posts but don't clean
 
     Returns the path to the exported file.
     """
     exports_dir = Path("exports")
     exports_dir.mkdir(exist_ok=True)
 
-    if not cleaned_mode:
-        output_path = exports_dir / source_path.name
-        shutil.copy2(source_path, output_path)
-        return output_path
-
-    # Read original file
     with open(source_path, "r", encoding="utf-8", errors="ignore") as f:
         content = f.read()
 
-    # Apply cleaners to each <post>...</post> content
-    def clean_post(match):
-        post_content = match.group(1)
-        cleaned_content = apply_cleaners(post_content)
-        return f"<post>{cleaned_content}</post>"
+    # Extract dates and posts
+    date_pattern = r"<date>(.*?)</date>"
+    post_pattern = r"<post>(.*?)</post>"
+    dates = re.findall(date_pattern, content, re.DOTALL)
+    posts = re.findall(post_pattern, content, re.DOTALL)
 
-    cleaned_content = re.sub(r"<post>(.*?)</post>", clean_post, content, flags=re.DOTALL)
+    # Group posts by date (combine multiple posts on same date)
+    date_posts = defaultdict(list)
+    for i, date_str in enumerate(dates):
+        if i < len(posts):
+            post_text = posts[i].strip()
+            parsed_date = parse_date(date_str.strip())
+            if parsed_date:
+                date_posts[parsed_date].append((date_str.strip(), post_text))
 
-    # Write to exports with _clean suffix
+    # Build new XML content with combined posts
+    lines = ['<Blog>']
+    for date in sorted(date_posts.keys()):
+        post_list = date_posts[date]
+        # Use original date string from first post
+        original_date_str = post_list[0][0]
+        # Reverse so last post of the day appears first, then combine
+        texts = [p[1] for p in post_list]
+        texts.reverse()
+        combined_text = "\n\n".join(texts)
+
+        if cleaned_mode:
+            combined_text = apply_cleaners(combined_text)
+
+        lines.append(f"<date>{original_date_str}</date>")
+        lines.append(f"<post>{combined_text}</post>")
+    lines.append('</Blog>')
+
+    # Determine output filename
     stem = source_path.stem
-    output_path = exports_dir / f"{stem}_clean.xml"
+    suffix = "_clean" if cleaned_mode else ""
+    output_path = exports_dir / f"{stem}{suffix}.xml"
+
     with open(output_path, "w", encoding="utf-8") as f:
-        f.write(cleaned_content)
+        f.write("\n".join(lines))
 
     return output_path
 
